@@ -170,7 +170,13 @@ function is_leader() {
 log INFO "== Kubernetes addon manager started at $(date -Is) with ADDON_CHECK_INTERVAL_SEC=${ADDON_CHECK_INTERVAL_SEC} =="
 
 # Create the namespace that will be used to host the cluster-level add-ons.
-start_addon /opt/namespace.yaml 100 10 "" &
+cat >/tmp/kube_system_namespace.yaml <<EOL
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${SYSTEM_NAMESPACE}
+EOL
+start_addon /tmp/kube_system_namespace.yaml 100 10 "" &
 
 # Wait for the default service account to be created in the kube-system namespace.
 token_found=""

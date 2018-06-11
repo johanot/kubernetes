@@ -15,7 +15,6 @@
 FROM BASEIMAGE
 
 ADD kube-addons.sh /opt/
-ADD namespace.yaml /opt/
 ADD kubectl /usr/local/bin/
 
 CMD ["/opt/kube-addons.sh"]
