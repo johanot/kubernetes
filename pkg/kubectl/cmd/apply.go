@@ -596,24 +596,19 @@ type pruner struct {
 	out io.Writer
 }
 
+var namespaceObjects map[meta.RESTMapping]*map[string][]runtime.Object
+
 func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUninitialized bool) error {
-	objList, err := p.dynamicClient.Resource(mapping.Resource).
-		Namespace(namespace).
-		List(metav1.ListOptions{
-			LabelSelector:        p.labelSelector,
-			FieldSelector:        p.fieldSelector,
-			IncludeUninitialized: includeUninitialized,
-		})
-	if err != nil {
-		return err
+
+	// Retrieve objects in all namespaces
+	if namespaceObjects[*mapping] == nil {
+		err := p.retrievePruneObjects(mapping, includeUninitialized)
+		if err == nil {
+			return err
+		}
 	}
 
-	objs, err := meta.ExtractList(objList)
-	if err != nil {
-		return err
-	}
-
-	for _, obj := range objs {
+	for _, obj := range (*namespaceObjects[*mapping])[namespace] {
 		metadata, err := meta.Accessor(obj)
 		if err != nil {
 			return err
@@ -640,6 +635,43 @@ func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUnini
 		}
 		printer.PrintObj(obj, p.out)
 	}
+	return nil
+}
+func (p *pruner) retrievePruneObjects(mapping *meta.RESTMapping, includeUninitialized bool) error {
+	if namespaceObjects == nil {
+		namespaceObjects = make(map[meta.RESTMapping]*map[string][]runtime.Object, 0)
+	}
+	var nmo map[string][]runtime.Object
+	if namespaceObjects[*mapping] == nil {
+		nmo = make(map[string][]runtime.Object, 0)
+	} else {
+		nmo = *namespaceObjects[*mapping]
+	}
+	objList, err := p.dynamicClient.Resource(mapping.Resource).
+		List(metav1.ListOptions{
+			LabelSelector:        p.labelSelector,
+			FieldSelector:        p.fieldSelector,
+			IncludeUninitialized: includeUninitialized,
+		})
+
+	if err != nil {
+		return err
+	}
+
+	objs, err := meta.ExtractList(objList)
+	if err != nil {
+		return err
+	}
+
+	for _, obj := range objs {
+		metadata, err := meta.Accessor(obj)
+		if err != nil {
+			return err
+		}
+		nmo[metadata.GetNamespace()] = append(nmo[metadata.GetNamespace()], obj)
+	}
+
+	namespaceObjects[*mapping] = &nmo
 	return nil
 }
 
