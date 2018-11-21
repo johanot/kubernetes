@@ -612,9 +612,14 @@ func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUnini
 			return err
 		}
 	}
-	//fmt.Print("Funky: ")
-	//fmt.Println(*namespaceObjects[key])
 
+
+	fmt.Print("Evaling ns: " + namespace)
+	fmt.Print(", key: " + key)
+	fmt.Print(", length: ")
+	fmt.Println(len((*namespaceObjects[key])[namespace]))
+
+	//fmt.Println(*namespaceObjects[key])
 	for _, obj := range (*namespaceObjects[key])[namespace] {
 		metadata, err := meta.Accessor(obj)
 		if err != nil {
@@ -678,7 +683,7 @@ func (p *pruner) retrievePruneObjects(mapping *meta.RESTMapping, includeUninitia
 		fmt.Println("Prune retriever: " + metadata.GetNamespace() + "/" + metadata.GetName())
 		nmo[metadata.GetNamespace()] = append(nmo[metadata.GetNamespace()], obj)
 		fmt.Print("Length: ")
-		fmt.Print(len(nmo[metadata.GetNamespace()]))
+		fmt.Println(len(nmo[metadata.GetNamespace()]))
 	}
 
 	return &nmo, nil
