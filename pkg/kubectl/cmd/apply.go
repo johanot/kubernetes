@@ -597,23 +597,25 @@ type pruner struct {
 	out io.Writer
 }
 
-var namespaceObjects map[meta.RESTMapping]*map[string][]runtime.Object
+var namespaceObjects map[string]*map[string][]runtime.Object
 
-func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUninitialized bool) error {
+func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUninitialized bool) (err error) {
 	if namespaceObjects == nil {
-		namespaceObjects = make(map[meta.RESTMapping]*map[string][]runtime.Object, 0)
+		namespaceObjects = make(map[string]*map[string][]runtime.Object, 0)
 	}
+
+	key := mappingToString(mapping)
 	// Retrieve objects in all namespaces
-	if namespaceObjects[*mapping] == nil {
-		err := p.retrievePruneObjects(mapping, includeUninitialized)
+	if namespaceObjects[key] == nil {
+		namespaceObjects[key], err = p.retrievePruneObjects(mapping, includeUninitialized)
 		if err == nil {
 			return err
 		}
 	}
-	fmt.Print("Funky: ")
-	fmt.Println(*namespaceObjects[*mapping])
+	//fmt.Print("Funky: ")
+	//fmt.Println(*namespaceObjects[key])
 
-	for _, obj := range (*namespaceObjects[*mapping])[namespace] {
+	for _, obj := range (*namespaceObjects[key])[namespace] {
 		metadata, err := meta.Accessor(obj)
 		if err != nil {
 			return err
@@ -644,14 +646,14 @@ func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUnini
 	}
 	return nil
 }
-func (p *pruner) retrievePruneObjects(mapping *meta.RESTMapping, includeUninitialized bool) error {
+func mappingToString(mapping *meta.RESTMapping) string {
+	facts := mapping.GroupVersionKind
+	return strings.Join([]string{facts.Group, facts.Kind, facts.Version}, "/")
+}
 
-	var nmo map[string][]runtime.Object
-	if namespaceObjects[*mapping] == nil {
-		nmo = make(map[string][]runtime.Object, 0)
-	} else {
-		nmo = *namespaceObjects[*mapping]
-	}
+func (p *pruner) retrievePruneObjects(mapping *meta.RESTMapping, includeUninitialized bool) (*map[string][]runtime.Object, error) {
+
+	var nmo = make(map[string][]runtime.Object, 0)
 	objList, err := p.dynamicClient.Resource(mapping.Resource).
 		List(metav1.ListOptions{
 			LabelSelector:        p.labelSelector,
@@ -660,25 +662,24 @@ func (p *pruner) retrievePruneObjects(mapping *meta.RESTMapping, includeUninitia
 		})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	objs, err := meta.ExtractList(objList)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, obj := range objs {
 		metadata, err := meta.Accessor(obj)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		fmt.Println("Prune retriever: " + metadata.GetNamespace() + "/" + metadata.GetName())
 		nmo[metadata.GetNamespace()] = append(nmo[metadata.GetNamespace()], obj)
 	}
 
-	namespaceObjects[*mapping] = &nmo
-	return nil
+	return &nmo, nil
 }
 
 func (p *pruner) delete(namespace, name string, mapping *meta.RESTMapping) error {
