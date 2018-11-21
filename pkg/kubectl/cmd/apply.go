@@ -608,7 +608,7 @@ func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUnini
 	// Retrieve objects in all namespaces
 	if namespaceObjects[key] == nil {
 		namespaceObjects[key], err = p.retrievePruneObjects(mapping, includeUninitialized)
-		if err == nil {
+		if err != nil {
 			return err
 		}
 	}
