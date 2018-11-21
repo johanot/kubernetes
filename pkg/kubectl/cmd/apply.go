@@ -600,7 +600,9 @@ type pruner struct {
 var namespaceObjects map[meta.RESTMapping]*map[string][]runtime.Object
 
 func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUninitialized bool) error {
-
+	if namespaceObjects == nil {
+		namespaceObjects = make(map[meta.RESTMapping]*map[string][]runtime.Object, 0)
+	}
 	// Retrieve objects in all namespaces
 	if namespaceObjects[*mapping] == nil {
 		err := p.retrievePruneObjects(mapping, includeUninitialized)
@@ -608,12 +610,16 @@ func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUnini
 			return err
 		}
 	}
+	fmt.Print("Funky: ")
+	fmt.Println(*namespaceObjects[*mapping])
 
 	for _, obj := range (*namespaceObjects[*mapping])[namespace] {
 		metadata, err := meta.Accessor(obj)
 		if err != nil {
 			return err
 		}
+		fmt.Println("Prune executor: " + metadata.GetNamespace() + "/" + metadata.GetName())
+
 		annots := metadata.GetAnnotations()
 		if _, ok := annots[api.LastAppliedConfigAnnotation]; !ok {
 			// don't prune resources not created with apply
@@ -639,9 +645,7 @@ func (p *pruner) prune(namespace string, mapping *meta.RESTMapping, includeUnini
 	return nil
 }
 func (p *pruner) retrievePruneObjects(mapping *meta.RESTMapping, includeUninitialized bool) error {
-	if namespaceObjects == nil {
-		namespaceObjects = make(map[meta.RESTMapping]*map[string][]runtime.Object, 0)
-	}
+
 	var nmo map[string][]runtime.Object
 	if namespaceObjects[*mapping] == nil {
 		nmo = make(map[string][]runtime.Object, 0)
@@ -669,6 +673,7 @@ func (p *pruner) retrievePruneObjects(mapping *meta.RESTMapping, includeUninitia
 		if err != nil {
 			return err
 		}
+		fmt.Println("Prune retriever: " + metadata.GetNamespace() + "/" + metadata.GetName())
 		nmo[metadata.GetNamespace()] = append(nmo[metadata.GetNamespace()], obj)
 	}
 
