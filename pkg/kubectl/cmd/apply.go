@@ -677,6 +677,8 @@ func (p *pruner) retrievePruneObjects(mapping *meta.RESTMapping, includeUninitia
 		}
 		fmt.Println("Prune retriever: " + metadata.GetNamespace() + "/" + metadata.GetName())
 		nmo[metadata.GetNamespace()] = append(nmo[metadata.GetNamespace()], obj)
+		fmt.Print("Length: ")
+		fmt.Print(len(nmo[metadata.GetNamespace()]))
 	}
 
 	return &nmo, nil
